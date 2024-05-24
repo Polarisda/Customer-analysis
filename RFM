@@ -18,9 +18,11 @@ WITH
     user_id,
     CASE
       WHEN last_buy BETWEEN '2023-06-01' AND '2023-09-01' THEN 4
-      WHEN last_buy BETWEEN '2023-09-02' AND '2023-12-01' THEN 3
+      WHEN last_buy BETWEEN '2023-09-02'
+    AND '2023-12-01' THEN 3
       WHEN last_buy BETWEEN '2023-12-02' AND '2024-02-01' THEN 2
-      WHEN last_buy BETWEEN '2024-02-02' AND '2024-06-01' THEN 1
+      WHEN last_buy BETWEEN '2024-02-02'
+    AND '2024-06-01' THEN 1
   END
     AS Recency
   FROM
@@ -37,6 +39,8 @@ WITH
     AS Frequency
   FROM
     `bigquery-public-data.thelook_ecommerce.orders`
+    WHERE
+    status='Complete'
   GROUP BY
     user_id),
   for_monetary AS(
