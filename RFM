@@ -1,0 +1,89 @@
+WITH
+  last_buy_date AS(
+  SELECT
+    user_id,
+    MAX(o.created_at) last_buy
+  FROM
+    `bigquery-public-data.thelook_ecommerce.users` u
+  JOIN
+    `bigquery-public-data.thelook_ecommerce.orders` o
+  ON
+    u.id=o.user_id
+  WHERE
+    status='Complete'
+  GROUP BY
+    user_id),
+  rec AS(
+  SELECT
+    user_id,
+    CASE
+      WHEN last_buy BETWEEN '2023-06-01' AND '2023-09-01' THEN 4
+      WHEN last_buy BETWEEN '2023-09-02' AND '2023-12-01' THEN 3
+      WHEN last_buy BETWEEN '2023-12-02' AND '2024-02-01' THEN 2
+      WHEN last_buy BETWEEN '2024-02-02' AND '2024-06-01' THEN 1
+  END
+    AS Recency
+  FROM
+    last_buy_date),
+  freq AS(
+  SELECT
+    user_id,
+    CASE
+      WHEN COUNT(user_id)=4 THEN 1
+      WHEN COUNT(user_id)=3 THEN 2
+      WHEN COUNT(user_id)=2 THEN 3
+      WHEN COUNT(user_id)=1 THEN 4
+  END
+    AS Frequency
+  FROM
+    `bigquery-public-data.thelook_ecommerce.orders`
+  GROUP BY
+    user_id),
+  for_monetary AS(
+  SELECT
+    o.user_id,
+    AVG(num_of_item*sale_price) av_cost
+  FROM
+    `bigquery-public-data.thelook_ecommerce.orders` o
+  JOIN
+    `bigquery-public-data.thelook_ecommerce.order_items` oi
+  ON
+    o.order_id=oi.order_id
+  WHERE
+    o.status='Complete'
+  GROUP BY
+    o.user_id),
+  mone AS(
+  SELECT
+    user_id,
+    CASE
+      WHEN av_cost<PERCENTILE_DISC(av_cost,0.25) OVER() THEN 4
+      WHEN av_cost<PERCENTILE_DISC(av_cost,0.5) OVER() THEN 3
+      WHEN av_cost<PERCENTILE_DISC(av_cost,0.75) OVER() THEN 2
+    ELSE
+    1
+  END
+    AS Monetary
+  FROM
+    for_monetary )
+SELECT
+  r.user_id,
+  Recency,
+  Frequency,
+  Monetary
+FROM
+  rec r
+JOIN
+  freq f
+ON
+  r.user_id=f.user_id
+JOIN
+  mone m
+ON
+  r.user_id=m.user_id
+WHERE
+  recency IS NOT NULL
+ORDER BY
+  Recency,
+  Frequency,
+  Monetary
